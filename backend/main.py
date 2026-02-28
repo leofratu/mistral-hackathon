@@ -49,17 +49,22 @@ async def api_generate(req: GenerateRequest):
     
     async def event_stream():
         state_holder: dict = {}
-        async for event in generate_paper(req.topic, llm_config=req.llm_config):
-            # Capture session & persist state from final event
-            if event["event"] == "session_start":
-                sid = event["data"]["session_id"]
-                state_holder["sid"] = sid
-            elif event["event"] == "complete":
-                sid = state_holder.get("sid", "")
-                # Re-create state from final data for session persistence
-                _persist_state(sid, event["data"])
-            
-            yield f"data: {json.dumps(event)}\n\n"
+        try:
+            async for event in generate_paper(req.topic, llm_config=req.llm_config):
+                # Capture session & persist state from final event
+                if event["event"] == "session_start":
+                    sid = event["data"]["session_id"]
+                    state_holder["sid"] = sid
+                elif event["event"] == "complete":
+                    sid = state_holder.get("sid", "")
+                    _persist_state(sid, event["data"])
+                
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            error_msg = str(e)
+            if len(error_msg) > 300:
+                error_msg = error_msg[:300] + "..."
+            yield f"data: {json.dumps({'event': 'error', 'data': {'message': error_msg}})}\n\n"
     
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -81,12 +86,56 @@ async def api_refine(session_id: str, req: RefineRequest):
         raise HTTPException(404, "Session not found")
     
     async def event_stream():
-        async for event in refine_paper(state, req.instruction, llm_config=req.llm_config):
-            if event["event"] == "complete":
-                _persist_state(session_id, event["data"])
-            yield f"data: {json.dumps(event)}\n\n"
+        try:
+            async for event in refine_paper(state, req.instruction, llm_config=req.llm_config):
+                if event["event"] == "complete":
+                    _persist_state(session_id, event["data"])
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            error_msg = str(e)
+            if len(error_msg) > 300:
+                error_msg = error_msg[:300] + "..."
+            yield f"data: {json.dumps({'event': 'error', 'data': {'message': error_msg}})}\n\n"
     
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.get("/api/models/{provider}")
+async def list_models(provider: str):
+    """Return available models for a given LLM provider."""
+    models = {
+        "openai": [
+            {"id": "gpt-4o", "name": "GPT-4o", "description": "Most capable, multimodal"},
+            {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "description": "Fast and affordable"},
+            {"id": "gpt-4-turbo", "name": "GPT-4 Turbo", "description": "High intelligence, long context"},
+            {"id": "gpt-4", "name": "GPT-4", "description": "Original GPT-4"},
+            {"id": "gpt-3.5-turbo", "name": "GPT-3.5 Turbo", "description": "Fast, legacy"},
+            {"id": "o1", "name": "o1", "description": "Reasoning model"},
+            {"id": "o1-mini", "name": "o1 Mini", "description": "Fast reasoning"},
+            {"id": "o3-mini", "name": "o3 Mini", "description": "Latest reasoning, efficient"},
+        ],
+        "gemini": [
+            {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "description": "Most capable, latest"},
+            {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "description": "Fast and intelligent"},
+            {"id": "gemini-2.5-flash-lite", "name": "Gemini 2.5 Flash Lite", "description": "Ultra-fast, lightweight"},
+            {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "description": "Previous gen fast model"},
+            {"id": "gemini-2.0-flash-lite", "name": "Gemini 2.0 Flash Lite", "description": "Previous gen lightweight"},
+            {"id": "gemini-3.1-pro-preview", "name": "Gemini 3.1 Pro Preview", "description": "Cutting-edge preview"},
+            {"id": "gemini-3-pro-preview", "name": "Gemini 3 Pro Preview", "description": "Next-gen preview"},
+            {"id": "gemini-3-flash-preview", "name": "Gemini 3 Flash Preview", "description": "Next-gen fast preview"},
+        ],
+        "mistral": [
+            {"id": "mistral-large-latest", "name": "Mistral Large", "description": "Flagship model"},
+            {"id": "mistral-medium-latest", "name": "Mistral Medium", "description": "Balanced performance"},
+            {"id": "mistral-small-latest", "name": "Mistral Small", "description": "Fast and efficient"},
+            {"id": "open-mistral-nemo", "name": "Mistral Nemo", "description": "Open-weight, 12B"},
+            {"id": "codestral-latest", "name": "Codestral", "description": "Optimized for code"},
+            {"id": "open-mixtral-8x22b", "name": "Mixtral 8x22B", "description": "MoE, open-weight"},
+            {"id": "open-mixtral-8x7b", "name": "Mixtral 8x7B", "description": "MoE, fast"},
+            {"id": "mistral-tiny", "name": "Mistral Tiny", "description": "Fastest, lowest cost"},
+        ],
+    }
+    return {"provider": provider, "models": models.get(provider, [])}
 
 
 @app.get("/api/health")

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AgentStatus from '../components/AgentStatus';
 
@@ -17,20 +17,32 @@ export default function HomePage({ setPaperState, setSessionId, llmConfig }) {
     const [progress, setProgress] = useState(0);
     const [currentAgent, setCurrentAgent] = useState('');
     const [agentMessage, setAgentMessage] = useState('');
+    const [errorMsg, setErrorMsg] = useState('');
     const navigate = useNavigate();
 
-    const handleGenerate = useCallback(async () => {
-        if (!topic.trim()) return;
+    // Use a ref so the async callback always gets the latest llmConfig
+    const llmConfigRef = useRef(llmConfig);
+    llmConfigRef.current = llmConfig;
+
+    const handleGenerate = async () => {
+        if (!topic.trim() || isGenerating) return;
         setIsGenerating(true);
         setEvents([]);
-        setProgress(0);
+        setProgress(5); // Start visible immediately
+        setCurrentAgent('init');
+        setAgentMessage('Connecting to pipeline...');
+        setErrorMsg('');
 
         try {
             const resp = await fetch(`${API_BASE}/api/generate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ topic: topic.trim(), llm_config: llmConfig }),
+                body: JSON.stringify({ topic: topic.trim(), llm_config: llmConfigRef.current }),
             });
+
+            if (!resp.ok) {
+                throw new Error(`Server error: ${resp.status}`);
+            }
 
             const reader = resp.body.getReader();
             const decoder = new TextDecoder();
@@ -51,34 +63,52 @@ export default function HomePage({ setPaperState, setSessionId, llmConfig }) {
                         setEvents(prev => [...prev, event]);
 
                         switch (event.event) {
+                            case 'session_start':
+                                setProgress(8);
+                                setAgentMessage('Session started');
+                                break;
                             case 'agent_start':
                                 setCurrentAgent(event.data.agent);
                                 setAgentMessage(event.data.message);
+                                setProgress(prev => Math.min(prev + 5, 90));
+                                break;
+                            case 'agent_done':
+                                setProgress(prev => Math.min(prev + 8, 90));
                                 break;
                             case 'iteration_start':
-                                setProgress((event.data.iteration / event.data.max) * 80);
+                                setProgress(30 + (event.data.iteration / event.data.max) * 50);
                                 break;
                             case 'iteration_done':
-                                setProgress(80 + (event.data.iteration / 3) * 15);
+                                setProgress(30 + (event.data.iteration / event.data.max) * 60);
                                 break;
+                            case 'error':
+                                setCurrentAgent('error');
+                                setAgentMessage(event.data.message);
+                                setErrorMsg(event.data.message);
+                                setIsGenerating(false);
+                                return;
                             case 'complete':
                                 setProgress(100);
                                 setPaperState(event.data);
                                 setSessionId(event.data.session_id);
-                                setCurrentAgent('');
-                                setAgentMessage('Complete');
-                                setTimeout(() => navigate('/editor'), 400);
-                                break;
+                                setCurrentAgent('done');
+                                setAgentMessage('Paper generated — redirecting to editor...');
+                                setTimeout(() => navigate('/editor'), 600);
+                                return;
                         }
-                    } catch (e) { /* skip */ }
+                    } catch (parseErr) {
+                        console.warn('SSE parse error:', parseErr, line);
+                    }
                 }
             }
         } catch (err) {
-            setAgentMessage(`Error: ${err.message}`);
+            setErrorMsg(`Connection error: ${err.message}`);
+            setCurrentAgent('error');
+            setAgentMessage(`Failed: ${err.message}`);
         } finally {
             setIsGenerating(false);
         }
-    }, [topic, setPaperState, setSessionId, navigate]);
+    };
 
     return (
         <div className="page fade-in" style={{ maxWidth: 640, marginTop: '10vh' }}>
@@ -114,7 +144,7 @@ export default function HomePage({ setPaperState, setSessionId, llmConfig }) {
                 </div>
             </div>
 
-            {!isGenerating && events.length === 0 && (
+            {!isGenerating && events.length === 0 && !errorMsg && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {SAMPLE_TOPICS.map((t, i) => (
                         <button
@@ -128,8 +158,26 @@ export default function HomePage({ setPaperState, setSessionId, llmConfig }) {
                 </div>
             )}
 
-            {isGenerating && (
-                <div className="slide-down" style={{ marginTop: 32, border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+            {/* Error display */}
+            {errorMsg && !isGenerating && (
+                <div style={{
+                    marginTop: 16,
+                    padding: '12px 16px',
+                    background: 'var(--error-soft)',
+                    border: '1px solid var(--error)',
+                    borderRadius: 'var(--radius)',
+                    color: 'var(--error)',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.8rem',
+                    wordBreak: 'break-word',
+                }}>
+                    {errorMsg}
+                </div>
+            )}
+
+            {/* Progress panel — always visible during generation */}
+            {(isGenerating || events.length > 0) && (
+                <div style={{ marginTop: 32, border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
                     <div className="progress-bar">
                         <div className="progress-fill" style={{ width: `${progress}%` }} />
                     </div>
@@ -137,19 +185,32 @@ export default function HomePage({ setPaperState, setSessionId, llmConfig }) {
                     <div style={{ padding: '16px' }}>
                         <AgentStatus agent={currentAgent} message={agentMessage} inline={true} />
 
-                        <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 16, maxHeight: 200, overflowY: 'auto' }}>
-                            {events.slice(-5).map((ev, i) => (
+                        <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12, maxHeight: 220, overflowY: 'auto' }}>
+                            {events.length === 0 && (
+                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                    Waiting for events...
+                                </div>
+                            )}
+                            {events.slice(-8).map((ev, i) => (
                                 <div key={i} style={{
                                     fontFamily: 'var(--font-mono)',
                                     fontSize: '0.75rem',
-                                    color: ev.event === 'complete' ? 'var(--success)' : 'var(--text-muted)',
+                                    color: ev.event === 'complete' ? 'var(--success)'
+                                        : ev.event === 'error' ? 'var(--error)'
+                                            : 'var(--text-muted)',
                                     marginBottom: 4,
                                     display: 'flex',
                                     gap: 8
                                 }}>
-                                    <span style={{ opacity: 0.5 }}>{new Date().toISOString().split('T')[1].slice(0, 8)}</span>
-                                    <span>[{ev.event}]</span>
-                                    <span style={{ color: 'var(--text-secondary)' }}>{ev.data?.message || ev.data?.agent || ''}</span>
+                                    <span style={{ color: 'var(--text-muted)', opacity: 0.6, flexShrink: 0 }}>
+                                        {ev.event === 'agent_start' ? '→' : ev.event === 'agent_done' ? '✓' : '·'}
+                                    </span>
+                                    <span style={{ color: 'var(--text-secondary)' }}>
+                                        [{ev.event}]
+                                    </span>
+                                    <span style={{ color: 'var(--text-primary)' }}>
+                                        {ev.data?.message || ev.data?.agent || ''}
+                                    </span>
                                 </div>
                             ))}
                         </div>

@@ -56,9 +56,28 @@ async def run(suggestions: list[GraphSuggestion], llm_config: LLMConfig | None =
             llm_config=llm_config,
         )
         
-        data = json.loads(response.choices[0].message.content)
-        code = data.get("code", "")
-        explanation = data.get("explanation", "")
+        raw_content = response.choices[0].message.content
+        
+        # Robust JSON extraction: strip markdown block if present
+        import re
+        json_match = re.search(r"```json\s*(.*?)\s*```", raw_content, re.DOTALL)
+        if json_match:
+            raw_content = json_match.group(1)
+        else:
+            # Fallback: find first { and last }
+            start_idx = raw_content.find('{')
+            end_idx = raw_content.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                raw_content = raw_content[start_idx:end_idx+1]
+                
+        try:
+            data = json.loads(raw_content)
+            code = data.get("code", "")
+            explanation = data.get("explanation", "")
+        except json.JSONDecodeError as e:
+            print(f"[GraphAgent] JSON parse error: {e}")
+            code = ""
+            explanation = "Visualization generation failed due to format error."
         
         # Execute the plotting code safely
         try:
