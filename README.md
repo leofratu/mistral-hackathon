@@ -2,6 +2,8 @@
 
 Multi-agent AI system that generates, validates, and refines academic research papers with visual quality review.
 
+> ✨ **Created with Mistral AI / Coded by Mistral AI** ✨
+
 ## Architecture
 
 ```
