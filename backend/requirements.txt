@@ -5,3 +5,4 @@ matplotlib
 pydantic>=2.0
 python-dotenv
 sse-starlette
+duckduckgo-search

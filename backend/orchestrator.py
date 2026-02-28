@@ -43,9 +43,9 @@ async def generate_paper(topic: str, llm_config: LLMConfig | None = None) -> Asy
     
     # ── Step 3: Citation ──────────────────────────────────────────
     state.current_agent = "citation"
-    yield _event("agent_start", {"agent": "citation", "message": "Adding citation markers..."})
+    yield _event("agent_start", {"agent": "citation", "message": "Searching web and adding citations..."})
     
-    cited_draft = await citation.run(draft, llm_config=llm_config)
+    cited_draft = await citation.run(draft, state.topic, llm_config=llm_config)
     state.draft_versions[-1] = cited_draft
     yield _event("agent_done", {"agent": "citation", "result": {"version": cited_draft.version}})
     
