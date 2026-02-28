@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+backend/venv/
+.env
+
+# Generated
+backend/generated_graphs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
