@@ -1,6 +1,18 @@
 # 📝 Research Paper AI
 **Multi-agent orchestration for academic synthesis and refinement.**
 
+![Main Home Screen](screenshots/main_screen.png)
+*Entering a research topic to kick off the multi-agent drafting process.*
+
+![Generation Progress](screenshots/main_screen_question.png)
+*Tracking the agent pipeline in real-time as they research, evaluate, and assemble the paper.*
+
+![Interactive Editor](screenshots/results.png)
+*The Interactive Editor: Reviewing the draft, generated visual analysis graphs, and automated critiques.*
+
+![PDF Export](screenshots/pdf_export.png)
+*Generating a flawlessly formatted, publication-ready PDF straight from the browser.*
+
 Research Paper AI is a next-generation academic drafting tool powered by a swarm of specialized LLM agents. Instead of a standard chatbot, it employs a sophisticated multi-agent pipeline to autonomously plan, research, write, cite, critique, and visually enhance research papers.
 
 ---
