@@ -40,12 +40,17 @@ async def call_llm(messages: list[dict], response_format=None, llm_config: LLMCo
         model = raw_model or default_model
         api_key = config.api_key or OPENAI_API_KEY
 
+    # Prevent accidental whitespace from copy-pasting
+    if api_key:
+        api_key = api_key.strip()
+        
     print(f"[LLM] provider={provider} model={model} key={'***' + api_key[-4:] if api_key else 'NONE'}")
 
     call_kwargs = {
         "model": model,
         "messages": messages,
         "api_key": api_key,
+        "timeout": 3600,
         **kwargs,
     }
     if response_format is not None:
@@ -53,3 +58,32 @@ async def call_llm(messages: list[dict], response_format=None, llm_config: LLMCo
 
     response = await litellm.acompletion(**call_kwargs)
     return response
+
+
+def parse_json_response(response) -> dict:
+    """Safely parse JSON from an LLM response, stripping markdown formatting if present."""
+    msg = response.choices[0].message
+    content = msg.content
+    
+    if not content:
+        # Fallback if content is literally None or empty (e.g. tool call without text)
+        return {}
+
+    content = content.strip()
+    
+    # Strip markdown code blocks if the LLM returned it
+    if content.startswith("```"):
+        lines = content.split('\n')
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        content = '\n'.join(lines).strip()
+    
+    import json
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        print("[LLM Error] Failed to parse JSON. Raw content:", content)
+        return {}
+

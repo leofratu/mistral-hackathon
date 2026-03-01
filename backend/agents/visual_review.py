@@ -1,7 +1,7 @@
 """Visual Review Agent — produces quality scores and publication readiness assessment."""
 
 import json
-from llm_helper import call_llm
+from llm_helper import call_llm, parse_json_response
 from state import DraftVersion, ReviewResult, ReviewScores, Critique, LLMConfig
 
 SYSTEM_PROMPT = """You are a journal editor evaluating a research paper for publication readiness.
@@ -55,7 +55,7 @@ async def run(
         llm_config=llm_config,
     )
     
-    data = json.loads(response.choices[0].message.content)
+    data = parse_json_response(response)
     
     scores = ReviewScores(**data.get("scores", {}))
     

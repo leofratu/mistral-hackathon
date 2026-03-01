@@ -1,7 +1,8 @@
 """Citation Agent — marks statements requiring references and inserts placeholders."""
 
 import json
-from llm_helper import call_llm
+import asyncio
+from llm_helper import call_llm, parse_json_response
 from state import DraftVersion, Section, LLMConfig
 try:
     from duckduckgo_search import DDGS
@@ -48,8 +49,15 @@ def get_search_context(topic: str) -> str:
 async def run(draft: DraftVersion, topic: str, llm_config: LLMConfig | None = None) -> DraftVersion:
     """Search the web and add real citations to the draft."""
     
-    # 1. Fetch real-world citations from the web
-    search_context = get_search_context(topic)
+    # 1. Fetch real-world citations from the web asynchronously with a strict timeout
+    try:
+        search_context = await asyncio.wait_for(
+            asyncio.to_thread(get_search_context, topic),
+            timeout=15.0
+        )
+    except Exception as e:
+        print(f"[CitationAgent] Search timed out or failed: {e}")
+        search_context = "No real-time search results available due to timeout."
     
     draft_text = json.dumps(
         {"sections": [s.model_dump() for s in draft.sections]}, indent=2
@@ -67,6 +75,6 @@ async def run(draft: DraftVersion, topic: str, llm_config: LLMConfig | None = No
         llm_config=llm_config,
     )
     
-    data = json.loads(response.choices[0].message.content)
+    data = parse_json_response(response)
     sections = [Section(**s) for s in data.get("sections", [])]
     return DraftVersion(version=draft.version, sections=sections)

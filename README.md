@@ -1,122 +1,66 @@
-<div align="center">
-  <img src="https://avatars.githubusercontent.com/u/132992940?v=4" alt="Mistral AI Logo" width="120" style="border-radius: 20px; margin-bottom: 20px;"/>
-  <h1>Synthesix: Autonomous Research Orchestration Engine</h1>
-  <p><em>A multi-agent AI system that generates, validates, and refines academic research papers with visual quality review and autonomous data visualization.</em></p>
-  
-  > 🏆 **Submitted for the Mistral AI Hackathon** | **Coded by Mistral AI** 🏆
-</div>
+# 📝 Research Paper AI
+**Multi-agent orchestration for academic synthesis and refinement.**
+
+Research Paper AI is a next-generation academic drafting tool powered by a swarm of specialized LLM agents. Instead of a standard chatbot, it employs a sophisticated multi-agent pipeline to autonomously plan, research, write, cite, critique, and visually enhance research papers.
 
 ---
 
-## 🚀 The Vision: Why We Built Synthesix
-
-Writing high-quality academic research requires rigorous planning, drafting, citing, critical peer-review, and complex data visualization. **Single-prompt LLM interactions inevitably fall short**—producing shallow, hallucinated content without structural integrity or verifiable empirical data.
-
-**Synthesix solves this by simulating an entire academic research laboratory within a single application.**
-
-Powered by Mistral AI, it employs a synchronized team of **7 specialized AI agents** working within a continuous refinement loop. Instead of a single zero-shot generation, Synthesix critically reviews its own work, injects strict academic citations, validates logic, generates corresponding data visualizations via raw Python code execution, and iteratively improves the text before rendering a final visual quality score.
-
----
-
-## ✨ Standout Features
-
-- 🧠 **7-Agent Orchestration graph:** Distinct AI personas (Planner, Drafter, Citation, Validator, Graph, Improver, Visual Review) working in synergy.
-- 📊 **Autonomous Python Data Visualization:** The Graph Agent acts as a data scientist. It reads the paper, and securely writes & executes raw Python `matplotlib` code to dynamically generate tailored quantitative charts (Line, Bar, Scatter, Pie).
-- 🔄 **Self-Healing Iterative Refinement Loop:** The system iterates on the draft (Validate → Graph → Improve → Review). If it fails its own rigorous internal quality checks, it triggers another autonomous refinement pass.
-- 🖥️ **Premium Real-time Streaming UI:** A sleek, Cursor-inspired Dark Mode frontend that parses Server-Sent Events (SSE). Watch the agents "think", collaborate, and write in real-time.
-- 🔀 **Unified Multi-LLM Routing:** Engineered with a custom abstraction layer to dynamically fetch and switch between models from **Mistral AI**, **Google Gemini**, and **OpenAI**. Configure your preferred provider instantly.
+## ✨ Key Features
+- **Multi-Agent Orchestration:** Employs specialized AI agents (`planner`, `drafter`, `citation`, `validator`, `improver`, `graph_agent`, and `visual_review`) that pass data through a strict pipeline to synthesize rigorous academic papers.
+- **Web-Grounded Citations:** The Citation Agent actively scrapes DuckDuckGo for real-world academic research and injects accurate citations into your document, formatted elegantly with full reference tracking.
+- **Data Visualization Generation:** Automatically interprets numeric claims to generate and embed clean mathematical and analytical graphs into the Results section.
+- **Iterative Refinement Loop:** Direct an agent directly on the page (e.g. "Make this section more technical") and watch the orchestrator re-run the `improver` and `validator` passes to apply your edits, re-calculate the quality score, and auto-fix logical gaps.
+- **Advanced Math Formatting:** Native support for rigorous algebraic and scientific LaTeX formatting (`react-markdown` + `remark-math` + `rehype-katex`), beautifully typesetting any `$$E=mc^2$$` output natively on the page.
+- **Academic PDF Exporter:** A custom `@media print` stylesheet automatically hides all application UI, expands the document, inserts all graphs, and natively interfaces with your browser to cleanly export a beautifully formatted, publication-ready PDF.
+- **Model Agnostic Backend:** Swap between the latest flagship models (`gemini-3.1-pro-preview`, `gpt-4o`, `o3-mini`, `mistral-large-latest`) with a built-in unified `litellm` wrapper.
 
 ---
 
-## 🤖 Meet the Lab (The Agents)
+## 🏗 System Architecture
 
-1. 📋 **The Planner:** Takes the initial user topic and constructs a rigorous academic outline (`Abstract`, `Introduction`, `Methods`, `Results`, `Discussion`, `Conclusion`).
-2. ✍️ **The Drafter:** Expands the outline into a full academic draft, ensuring scholarly tone and logical flow.
-3. 📚 **The Citation Agent:** Scours the text to inject precise academic markers, formatting, and standardizes references.
-4. 🧐 **The Validator (Peer Reviewer):** Scrutinizes the draft for logic gaps, weak claims, or inconsistencies.
-5. 📈 **The Graph Agent:** Analyzes the empirical claims and autonomously writes/executes Python code to generate synthetic, publication-quality PNG charts.
-6. 🛠️ **The Improver:** Ingests the validator's strict critiques and iteratively refines the prose to elevate the quality.
-7. 🎯 **The Visual Reviewer:** Analyzes the final iteration and scores it across 5 axes (*Clarity, Depth, Citations, Logic, Formatting*), rendering a dynamic Radar Chart.
+The project is split into a **React/Vite Frontend** and a **FastAPI/Python Backend**.
 
-```text
-┌─────────────┐     ┌──────────────┐     ┌───────────────┐
-│  Planner    │────▶│   Drafter    │────▶│   Citation    │
-└─────────────┘     └──────────────┘     └───────┬───────┘
-                                                  │
-                    ┌──────────────┐     ┌───────▼───────┐
-                    │ Graph Agent  │◀────│   Validator   │
-                    │ (Exec Python)│     └───────┬───────┘
-                    └──────────────┘             │
-                    ┌──────────────┐     ┌───────▼───────┐
-                    │Visual Review │◀────│   Improver    │
-                    └──────────────┘     └───────────────┘
-```
+### 1. The Frontend (React)
+- **Home Dashboard:** Allows you to input a topic and streams the Multi-Agent pipeline steps via SSE (Server-Sent Events) in a clean terminal-style loader.
+- **Interactive Editor:** Features a 2-column layout. The left pane shows the manuscript outline and a real-time list of "Problems/Critiques" identified by the Validator agent. The main canvas displays the dynamically rendered paper with math typing and graphical figures.
+- **Refinement CLI:** A built-in terminal at the bottom of the editor lets you send direct conversational commands back to the AI Swarm to explicitly rewrite/improve the draft.
+- **Fully Responsive Print State:** Clicking "Export PDF" completely restructures the DOM into a continuous, white-background academic paper for clean browser-printing.
+
+### 2. The Backend (FastAPI + LiteLLM)
+- The core logic is housed in `orchestrator.py`, which routes the paper state intelligently through various Python classes in the `/agents` directory.
+- `llm_helper.py` normalizes API connections using `litellm`. Crucially, it overrides standard timeout defaults (granting 3600 seconds) to accommodate next-gen reasoning models handling massive multi-page generation contexts.
+- Uses `asyncio.to_thread` and strict timeouts to prevent synchronous third-party scrapers (like DuckDuckGo) from crashing the ASGI event loop.
 
 ---
 
-## 🛠️ The Tech Stack
+## 🚀 Getting Started
 
-| Architecture Layer | Capabilities |
-|-----------|-------------|
-| **Core AI Logic** | **Mistral API** (Primary Engine), LiteLLM (Unified LLM abstraction forcing structured JSON outputs) |
-| **Backend Engine** | Python, FastAPI, Asynchronous Server-Sent Events (SSE) |
-| **Frontend UI** | React, Vite (Reactive UI with custom animations and realtime SSE parsing) |
-| **Data Viz**| `matplotlib`, `numpy` (Secure Python execution sandbox for graph generation), Recharts (Frontend Radar charts) |
-| **Data Modeling** | Pydantic (Strict schema enforcement across the multi-agent graph) |
+### Prerequisites
+- Node.js (for frontend)
+- Python 3.10+ (for backend)
 
----
-
-## 🏁 Quick Start & Setup
-
-### 1. Clone & Core Setup
-
-```bash
-git clone https://github.com/leofratu/mistral-hackathon.git
-cd mistral-hackathon
-
-# Setup backend environment
-cp backend/.env.example backend/.env
-# Add API keys to .env (MISTRAL_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY)
-```
-
-### 2. Launch the Backend (FastAPI Engine)
-
+### Backend Setup
 ```bash
 cd backend
-python3 -m venv venv
+python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-
-# Start the async server on port 8000
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+cp .env.example .env # Add your GEMINI / OPENAI / MISTRAL api keys here
+uvicorn main:app --reload --port 8000
 ```
 
-### 3. Launch the Frontend (React Application)
-
-In a new terminal:
-
+### Frontend Setup
 ```bash
 cd frontend
 npm install
-
-# Start the dev server on port 5173
-npm run dev -- --port 5173
+npm run dev
 ```
 
-Navigate to [http://localhost:5173](http://localhost:5173) in your browser.
+Browse to `http://localhost:5173` to start creating your first paper!
 
 ---
-
-## 🎮 Evaluating the Demo (Judges Guide)
-
-1. **Configure the Engine:** Navigate to the `/settings` tab. Select **Mistral AI**, pick a dynamic model (e.g., `mistral-large-latest`), and ensure your API key is active.
-2. **Initiate the Lab:** On the Home page, input a specialized topic like *"The Efficacy of Transformer Architectures in Genomic Sequencing"* and click **Generate ↵**.
-3. **Observe the Pipeline:** Watch the real-time progress bar. The Agent Status UI will update via SSE as the system plans, drafts, validates, graphs, and refines the paper autonomously.
-4. **Interactive Editor:** Once compilation concludes, you are redirected to the Editor. Review the generated sections, citations, and the **dynamically generated PNG charts**.
-5. **Quality Review:** Click the **Review** tab to analyze the Quality Radar Chart, scoring the paper across 5 critical axes.
-6. **Multi-Turn Refinement:** Use the Editor's refinement input to ask the agents to selectively revise specific paragraphs interactively.
-
----
-<div align="center">
-  <i>Generated papers are for demonstration purposes and utilize synthesized empirical data.</i>
-</div>
+## 🛠 Recent Updates
+- Integrated an invisible full-paper `print-only` container to ensure all text and dynamically generated graphics are naturally exported onto the exported PDF.
+- Upgraded the `get_search_context` DDGS execution to use a threaded `asyncio.wait_for` wrapper, guaranteeing that dropped connections do not freeze the backend event loop.
+- Reorganized the Iteration pipeline: The Orchestrator now correctly forces the `Validator` to evaluate the *newly refreshed* draft directly after the `Improver` has applied the user's refinement instructions, ensuring the UI's Quality Score is precisely accurate.
+- Overhauled Editor SSE Stream handlers to aggressively intercept backend exceptions and trigger frontend Error Alerts instead of failing silently.

@@ -387,6 +387,32 @@ textarea.input {
   text-decoration: underline;
 }
 
+/* Custom Citations */
+.prose a[href="#citation"] {
+  color: var(--info);
+  cursor: help;
+  border-bottom: 1px dotted var(--info);
+  padding-bottom: 2px;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.prose a[href="#citation"]:hover {
+  text-decoration: none;
+  opacity: 0.8;
+}
+
+/* ── Graphs ────────────────────── */
+.graph-img {
+  width: 100%;
+  max-width: 500px;
+  display: block;
+  margin: 0 auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
 /* ── Code / Diff block ─────────── */
 .code-block {
   font-family: var(--font-mono);
@@ -397,4 +423,74 @@ textarea.input {
   padding: 12px;
   overflow-x: auto;
   color: var(--text-primary);
+}
+
+/* ── Print Styles ──────────────── */
+@media print {
+
+  body,
+  #root {
+    background: #fff;
+    color: #000;
+  }
+
+  .navbar,
+  .no-print {
+    display: none !important;
+  }
+
+  .page-full {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  .editor-grid {
+    display: block !important;
+    height: auto !important;
+  }
+
+  .print-canvas,
+  .print-content {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .prose {
+    color: #000;
+  }
+
+  .prose h1,
+  .prose h2,
+  .prose h3 {
+    page-break-after: avoid;
+    color: #000;
+  }
+
+  .card,
+  .code-block {
+    background: #fdfdfd;
+    border: 1px solid #ccc;
+    color: #000;
+    page-break-inside: avoid;
+  }
+
+  img {
+    max-width: 100%;
+    page-break-inside: avoid;
+  }
+
+  .screen-only {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
 }

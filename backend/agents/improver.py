@@ -1,7 +1,7 @@
 """Improvement Agent — refines clarity, transitions, tone, and redundancy."""
 
 import json
-from llm_helper import call_llm
+from llm_helper import call_llm, parse_json_response
 from state import DraftVersion, Section, Critique, LLMConfig
 
 SYSTEM_PROMPT = """You are an expert academic editor. Improve the draft based on the critique provided.
@@ -59,6 +59,6 @@ async def run(
         llm_config=llm_config,
     )
     
-    data = json.loads(response.choices[0].message.content)
+    data = parse_json_response(response)
     sections = [Section(**s) for s in data.get("sections", [])]
     return DraftVersion(version=draft.version + 1, sections=sections)

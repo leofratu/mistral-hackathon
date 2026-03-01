@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from llm_helper import call_llm
+from llm_helper import call_llm, parse_json_response
 from state import GraphSuggestion, GraphData, LLMConfig
 from config import GRAPHS_DIR
 import os
@@ -56,28 +56,15 @@ async def run(suggestions: list[GraphSuggestion], llm_config: LLMConfig | None =
             llm_config=llm_config,
         )
         
-        raw_content = response.choices[0].message.content
+        data = parse_json_response(response)
         
-        # Robust JSON extraction: strip markdown block if present
-        import re
-        json_match = re.search(r"```json\s*(.*?)\s*```", raw_content, re.DOTALL)
-        if json_match:
-            raw_content = json_match.group(1)
-        else:
-            # Fallback: find first { and last }
-            start_idx = raw_content.find('{')
-            end_idx = raw_content.rfind('}')
-            if start_idx != -1 and end_idx != -1:
-                raw_content = raw_content[start_idx:end_idx+1]
-                
-        try:
-            data = json.loads(raw_content)
-            code = data.get("code", "")
-            explanation = data.get("explanation", "")
-        except json.JSONDecodeError as e:
-            print(f"[GraphAgent] JSON parse error: {e}")
+        if not data:
+            print("[GraphAgent] JSON parse error: fallback data used.")
             code = ""
             explanation = "Visualization generation failed due to format error."
+        else:
+            code = data.get("code", "")
+            explanation = data.get("explanation", "")
         
         # Execute the plotting code safely
         try:

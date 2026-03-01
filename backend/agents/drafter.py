@@ -1,7 +1,7 @@
 """Drafting Agent — expands an outline into a full academic draft."""
 
 import json
-from llm_helper import call_llm
+from llm_helper import call_llm, parse_json_response
 from state import Outline, DraftVersion, Section, LLMConfig
 
 SYSTEM_PROMPT = """You are an expert academic writer. Given a paper outline, write a complete academic draft.
@@ -54,6 +54,6 @@ async def run(
         llm_config=llm_config,
     )
     
-    data = json.loads(response.choices[0].message.content)
+    data = parse_json_response(response)
     sections = [Section(**s) for s in data.get("sections", [])]
     return DraftVersion(version=version, sections=sections)

@@ -1,7 +1,7 @@
 """Planner Agent — converts a topic into a structured paper outline."""
 
 import json
-from llm_helper import call_llm
+from llm_helper import call_llm, parse_json_response
 from state import Outline, OutlineSection, LLMConfig
 
 SYSTEM_PROMPT = """You are a research paper planning specialist. Given a topic, produce a structured outline for an academic paper.
@@ -40,6 +40,6 @@ async def run(topic: str, refinement_instructions: list[str] | None = None, llm_
         llm_config=llm_config,
     )
     
-    data = json.loads(response.choices[0].message.content)
+    data = parse_json_response(response)
     sections = [OutlineSection(**s) for s in data.get("sections", [])]
     return Outline(title=data.get("title", topic), sections=sections)

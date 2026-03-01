@@ -1,7 +1,7 @@
 """Validation Agent — reviews a draft for issues and suggests graphs."""
 
 import json
-from llm_helper import call_llm
+from llm_helper import call_llm, parse_json_response
 from state import DraftVersion, Critique, Issue, GraphSuggestion, LLMConfig
 
 SYSTEM_PROMPT = """You are a rigorous academic peer reviewer. Analyze the draft and identify issues.
@@ -48,7 +48,7 @@ async def run(draft: DraftVersion, llm_config: LLMConfig | None = None) -> Criti
         llm_config=llm_config,
     )
     
-    data = json.loads(response.choices[0].message.content)
+    data = parse_json_response(response)
     
     issues = [Issue(**i) for i in data.get("issues", [])]
     graph_suggestions = [GraphSuggestion(**g) for g in data.get("graph_suggestions", [])]

@@ -135,14 +135,28 @@ async def refine_paper(state: PaperState, instruction: str, llm_config: LLMConfi
         yield _event("error", {"message": "No draft to refine"})
         return
     
-    # Re-validate
+    # 1. Improve with user instruction (using the most recent critique as context)
+    state.current_agent = "improver"
+    yield _event("agent_start", {"agent": "improver", "message": f"Applying: {instruction[:60]}..."})
+    
+    previous_draft = current_draft
+    last_critique = state.critiques[-1] if state.critiques else None
+    
+    # We must pass a Critique if the improver expects one, but it handles None or we can pass last_critique
+    # Wait, improver expects `critique: Critique`. Let's pass last_critique. If None, it might crash, but in our pipeline, critique always exists.
+    # In improver.py: async def run(draft: DraftVersion, critique: Critique, ...)
+    improved = await improver.run(current_draft, last_critique, refinement_instructions=[instruction], llm_config=llm_config)
+    state.draft_versions.append(improved)
+    yield _event("agent_done", {"agent": "improver", "result": {"version": improved.version}})
+    
+    # 2. Re-validate the NEW draft
     state.current_agent = "validator"
-    yield _event("agent_start", {"agent": "validator", "message": "Re-reviewing with new instructions..."})
-    crit = await validator.run(current_draft, llm_config=llm_config)
+    yield _event("agent_start", {"agent": "validator", "message": "Re-reviewing the updated draft..."})
+    crit = await validator.run(improved, llm_config=llm_config)
     state.critiques.append(crit)
     yield _event("agent_done", {"agent": "validator", "result": crit.model_dump()})
     
-    # Graph if needed
+    # 3. Generate new graphs if the new draft needs them
     if crit.needs_graph and crit.graph_suggestions:
         state.current_agent = "graph_agent"
         yield _event("agent_start", {"agent": "graph_agent", "message": "Generating visualizations..."})
@@ -150,16 +164,7 @@ async def refine_paper(state: PaperState, instruction: str, llm_config: LLMConfi
         state.graphs.extend(graphs)
         yield _event("agent_done", {"agent": "graph_agent", "result": [g.model_dump() for g in graphs]})
     
-    # Improve with user instruction
-    state.current_agent = "improver"
-    yield _event("agent_start", {"agent": "improver", "message": f"Applying: {instruction[:60]}..."})
-    
-    previous_draft = current_draft
-    improved = await improver.run(current_draft, crit, refinement_instructions=[instruction], llm_config=llm_config)
-    state.draft_versions.append(improved)
-    yield _event("agent_done", {"agent": "improver", "result": {"version": improved.version}})
-    
-    # Review
+    # 4. Final Review
     state.current_agent = "visual_review"
     yield _event("agent_start", {"agent": "visual_review", "message": "Re-evaluating quality..."})
     review = await visual_review.run(improved, crit, previous_draft, llm_config=llm_config)
