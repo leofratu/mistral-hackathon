@@ -17,6 +17,10 @@ Research Paper AI is a next-generation academic drafting tool powered by a swarm
 
 ---
 
+## Warning 🔴
+
+-**Terms of use** Please don't submit these papers to scientifc papers, LLM's are currently not up to the task this is a tool to draft an idea for a paper however we discourge the use of this tool to write papers fully in the strongest terms 
+
 ## ✨ Key Features
 - **Multi-Agent Orchestration:** Employs specialized AI agents (`planner`, `drafter`, `citation`, `validator`, `improver`, `graph_agent`, and `visual_review`) that pass data through a strict pipeline to synthesize rigorous academic papers.
 - **Web-Grounded Citations:** The Citation Agent actively scrapes DuckDuckGo for real-world academic research and injects accurate citations into your document, formatted elegantly with full reference tracking.
